@@ -14,8 +14,8 @@ nameOverride: ""
 fullnameOverride: ""
 
 storage:
-  # allowed values (cassandra, elasticsearch)
-  type: cassandra
+  # allowed values (cassandra, elasticsearch, clickhouse)
+  type: clickhouse
   cassandra:
     host: cassandra
     port: 9042
@@ -44,6 +44,13 @@ storage:
       # cassandra.port: 9042
       # cassandra.keyspace: jaeger_v1_test
       # cassandra.tls.enabled: "false"
+  clickhouse:
+    address: tcp://clickhouse-ch-cluster:9000
+    username: admin
+    password: c1ickh0use
+    spans_table: jaeger_spans_v2
+    spans_index_table: jaeger_index_v2
+    operations_table: jaeger_operations_v2
   elasticsearch:
     scheme: http
     host: elasticsearch-master
@@ -140,6 +147,13 @@ schema:
 # For configurable values of the elasticsearch if provisioned, please see:
 # https://github.com/elastic/helm-charts/tree/master/elasticsearch#configuration
 elasticsearch: {}
+
+clickhouse:
+  logLevel: debug
+  image:
+    name: ghcr.io/jaegertracing/jaeger-clickhouse
+    tag: 0.7.0
+  pullPolicy: IfNotPresent
 
 ingester:
   enabled: false

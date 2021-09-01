@@ -44,6 +44,15 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if (eq .Values.storage.type "clickhouse") }}
+      initContainers:
+      - image: {{ .Values.clickhouse.image.name }}:{{ .Values.clickhouse.image.tag }}
+        imagePullPolicy: {{ .Values.clickhouse.pullPolicy }}
+        name: install-plugin
+        volumeMounts:
+        - mountPath: /plugin
+          name: plugin-volume
+      {{- end }}
       containers:
       - name: {{ template "jaeger.query.name" . }}
         securityContext:
@@ -59,12 +68,21 @@ spec:
           {{- end }}
           {{- end }}
           {{- include "storage.cmdArgs" . | nindent 10 }}
+          {{- if (eq .Values.storage.type "clickhouse") }}
+          - --grpc-storage-plugin.binary=/plugin/jaeger-clickhouse
+          - --grpc-storage-plugin.configuration-file=/plugin-config/config.yaml
+          - --grpc-storage-plugin.log-level={{ .Values.clickhouse.logLevel }}
+          {{- end }}
         env:
         {{- if .Values.query.extraEnv }}
           {{- toYaml .Values.query.extraEnv | nindent 10 }}
         {{- end }}
           - name: SPAN_STORAGE_TYPE
+            {{- if (eq .Values.storage.type "clickhouse") }}
+            value: grpc-plugin
+            {{- else }}
             value: {{ .Values.storage.type }}
+            {{- end }}
           {{- include "storage.env" . | nindent 10 }}
           {{- if .Values.query.basePath }}
           - name: QUERY_BASE_PATH
@@ -116,6 +134,12 @@ spec:
           - name: ui-configuration
             mountPath: /etc/conf/
         {{- end }}
+        {{- if (eq .Values.storage.type "clickhouse") }}
+          - name: plugin-volume
+            mountPath: /plugin
+          - name: plugin-config
+            mountPath: /plugin-config
+        {{- end }}        
         livenessProbe:
           httpGet:
             path: /
@@ -236,6 +260,13 @@ spec:
           secret:
             secretName: {{ .Values.storage.cassandra.tls.secretName }}
       {{- end }}
+      {{- if (eq .Values.storage.type "clickhouse") }}
+        - name: plugin-volume
+          emptyDir: {}
+        - name: plugin-config
+          secret:
+            secretName: {{ include "jaeger.fullname" . }}-clickhouse
+      {{- end }}      
 {{- if .Values.query.oAuthSidecar.enabled }}
       {{- range .Values.query.oAuthSidecar.extraConfigmapMounts }}
         - name: {{ .name }}
